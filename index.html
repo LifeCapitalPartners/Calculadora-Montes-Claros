@@ -667,24 +667,24 @@
         </div>
       </div>
 
-      <!-- Entrada à vista (%) - apenas para Condição 2 -->
+      <!-- Entrada à vista (R$) - apenas para Condição 2 -->
       <div class="form-section" id="vistaPercentSection" style="display: none;">
-        <label class="form-label">Entrada à Vista (%)</label>
+        <label class="form-label">Entrada à Vista (R$)</label>
         <div class="input-group">
-          <input type="range" id="vistaPercentRange" class="slider" min="10" max="20" step="0.01" value="10.00">
-          <input type="text" id="vistaPercentInput" class="months-input" value="10,00" inputmode="decimal" placeholder="10,00">
+          <input type="range" id="vistaPercentRange" class="slider" min="10000" max="20000" step="100" value="10000">
+          <input type="text" id="vistaPercentInput" class="months-input" value="10.000,00" inputmode="decimal" placeholder="10.000,00">
         </div>
-        <div class="value-display" id="vistaPercentDisplay">10,00%</div>
+        <div class="value-display" id="vistaPercentDisplay">R$ 10.000,00</div>
       </div>
 
-      <!-- Entrada parcelada em 12x (%) - apenas para Condição 2 -->
+      <!-- Entrada parcelada em 12x (R$) - apenas para Condição 2 -->
       <div class="form-section" id="parceladaPercentSection" style="display: none;">
-        <label class="form-label">Entrada em 12x Sem Juros (%)</label>
+        <label class="form-label">Entrada em 12x Sem Juros (R$)</label>
         <div class="input-group">
-          <input type="range" id="parceladaPercentRange" class="slider" min="10" max="20" step="0.01" value="10.00">
-          <input type="text" id="parceladaPercentInput" class="months-input" value="10,00" inputmode="decimal" placeholder="10,00">
+          <input type="range" id="parceladaPercentRange" class="slider" min="10000" max="20000" step="100" value="10000">
+          <input type="text" id="parceladaPercentInput" class="months-input" value="10.000,00" inputmode="decimal" placeholder="10.000,00">
         </div>
-        <div class="value-display" id="parceladaPercentDisplay">10,00%</div>
+        <div class="value-display" id="parceladaPercentDisplay">R$ 10.000,00</div>
       </div>
 
       <!-- 4. Meses de financiamento -->
@@ -777,40 +777,39 @@
       rangeEl.style.background = `linear-gradient(to right, var(--primary-color) 0%, var(--primary-color) ${perc}%, var(--gray-200) ${perc}%, var(--gray-200) 100%)`;
     };
 
-    /* Sincronizar controles de porcentagem (10% a 20%) */
-    const syncPercent = (rangeEl, inputEl, displayEl) => {
-      const parseLoose = (str) => {
+    /* Sincronizar controles de valores em R$ (10.000 a 20.000) */
+    const syncValor = (rangeEl, inputEl, displayEl) => {
+      const parseBR = (str) => {
         if (str == null) return NaN;
-        const cleaned = String(str).replace('%','').replace(/[^\d.,-]/g, '').replace(',', '.');
+        const cleaned = String(str).replace(/[^\d.,-]/g, '').replace(/\./g, '').replace(',', '.');
         return parseFloat(cleaned);
       };
-      const clamp = (num) => Math.min(20, Math.max(10, num));
-      const fmt = (num) => num.toFixed(2).replace('.', ',');
+      const clamp = (num) => Math.min(20000, Math.max(10000, num));
+      const fmtBR = (num) => formatBRL(num);
+      const fmtInput = (num) => num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
       const fromRange = () => {
-        const v = clamp(parseFloat(rangeEl.value) || 10);
-        inputEl.value = fmt(v);
-        displayEl.textContent = `${fmt(v)}%`;
+        const v = clamp(parseFloat(rangeEl.value) || 10000);
+        inputEl.value = fmtInput(v);
+        displayEl.textContent = fmtBR(v);
         updateSliderFill(rangeEl);
       };
 
       const fromInput = () => {
-        // Não reescreve o valor enquanto digita; só atualiza a legenda
         const raw = inputEl.value ?? '';
         if (raw === '') { displayEl.textContent = '—'; return; }
-        const num = parseLoose(raw);
-        if (Number.isNaN(num)) { displayEl.textContent = `${raw}%`; return; }
-        // Atualiza slider apenas quando estiver dentro do intervalo
-        if (num >= 10 && num <= 20) { rangeEl.value = String(num); updateSliderFill(rangeEl); }
-        displayEl.textContent = `${fmt(clamp(num))}%`;
+        const num = parseBR(raw);
+        if (Number.isNaN(num)) { displayEl.textContent = raw; return; }
+        if (num >= 10000 && num <= 20000) { rangeEl.value = String(num); updateSliderFill(rangeEl); }
+        displayEl.textContent = fmtBR(clamp(num));
       };
 
       const onBlur = () => {
-        const num = parseLoose(inputEl.value);
-        const v = Number.isNaN(num) ? 10 : clamp(num);
-        inputEl.value = fmt(v);
+        const num = parseBR(inputEl.value);
+        const v = Number.isNaN(num) ? 10000 : clamp(num);
+        inputEl.value = fmtInput(v);
         rangeEl.value = String(v);
-        displayEl.textContent = `${fmt(v)}%`;
+        displayEl.textContent = fmtBR(v);
         updateSliderFill(rangeEl);
       };
 
@@ -1112,11 +1111,9 @@
         });
 
       } else {
-        // Condição 2: Percentuais configuráveis (10% a 20%)
-        const vistaPercent = Math.min(20, Math.max(10, parseFloat(String(vistaPercentInput.value).replace(',','.')) || 10));
-        const parceladaPercent = Math.min(20, Math.max(10, parseFloat(String(parceladaPercentInput.value).replace(',','.')) || 10));
-        const entradaVista = valorTerreno * (vistaPercent / 100);
-        const entradaParcelada = valorTerreno * (parceladaPercent / 100);
+        // Condição 2: Valores configuráveis (R$ 10.000 a R$ 20.000)
+        const entradaVista = Math.min(20000, Math.max(10000, parseFloat(String(vistaPercentInput.value).replace(/\./g,'').replace(',','.')) || 10000));
+        const entradaParcelada = Math.min(20000, Math.max(10000, parseFloat(String(parceladaPercentInput.value).replace(/\./g,'').replace(',','.')) || 10000));
         const saldoFinanciar = Math.max(0, valorTerreno - entradaVista - entradaParcelada);
         
         const parcelaEntradaParcelada = entradaParcelada / 12; // 12x sem juros
@@ -1130,9 +1127,7 @@
           saldoFinanciar,
           parcelaEntradaParcelada,
           parcelaFinanciamento,
-          meses: meses,
-          vistaPercent,
-          parceladaPercent
+          meses: meses
         });
       }
     };
@@ -1174,8 +1169,8 @@
                html += `
                  <div class="result-details">
                    <div><strong>Valor do terreno:</strong> ${formatBRL(details.valorTerreno)}</div>
-                   <div><strong>Entrada à vista:</strong> ${formatBRL(details.entradaVista)} (${details.vistaPercent || 10}%)</div>
-                   <div><strong>Entrada parcelada:</strong> ${formatBRL(details.entradaParcelada)} (${details.parceladaPercent || 10}%) — 12x de ${formatBRL(details.parcelaEntradaParcelada)} sem juros</div>
+                   <div><strong>Entrada à vista:</strong> ${formatBRL(details.entradaVista)}</div>
+                   <div><strong>Entrada parcelada:</strong> ${formatBRL(details.entradaParcelada)} — 12x de ${formatBRL(details.parcelaEntradaParcelada)} sem juros</div>
                    <div><strong>Saldo financiado:</strong> ${formatBRL(details.saldoFinanciar)} em ${details.meses} meses</div>
                    <div style="margin-left: 16px; margin-top: 4px; font-size: 0.75rem; color: var(--gray-500);">
                      <div>• Entrada à vista: ${formatBRL(details.entradaVista)} (pago imediatamente)</div>
@@ -1203,8 +1198,8 @@
     /* Inicialização */
     updateEntradaMax();
     // Inicializar sincronização dos percentuais (mesmo ocultos inicialmente)
-    syncPercent(vistaPercentRange, vistaPercentInput, vistaPercentDisplay);
-    syncPercent(parceladaPercentRange, parceladaPercentInput, parceladaPercentDisplay);
+    syncValor(vistaPercentRange, vistaPercentInput, vistaPercentDisplay);
+    syncValor(parceladaPercentRange, parceladaPercentInput, parceladaPercentDisplay);
     updateInterfaceForCondition();
     
     /* Validação do campo de meses */
