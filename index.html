@@ -672,7 +672,7 @@
         <label class="form-label">Entrada à Vista (%)</label>
         <div class="input-group">
           <input type="range" id="vistaPercentRange" class="slider" min="10" max="20" step="0.01" value="10.00">
-          <input type="number" id="vistaPercentInput" class="months-input" min="10" max="20" step="0.01" value="10.00">
+          <input type="text" id="vistaPercentInput" class="months-input" value="10,00" inputmode="decimal" placeholder="10,00">
         </div>
         <div class="value-display" id="vistaPercentDisplay">10,00%</div>
       </div>
@@ -682,7 +682,7 @@
         <label class="form-label">Entrada em 12x Sem Juros (%)</label>
         <div class="input-group">
           <input type="range" id="parceladaPercentRange" class="slider" min="10" max="20" step="0.01" value="10.00">
-          <input type="number" id="parceladaPercentInput" class="months-input" min="10" max="20" step="0.01" value="10.00">
+          <input type="text" id="parceladaPercentInput" class="months-input" value="10,00" inputmode="decimal" placeholder="10,00">
         </div>
         <div class="value-display" id="parceladaPercentDisplay">10,00%</div>
       </div>
@@ -779,27 +779,45 @@
 
     /* Sincronizar controles de porcentagem (10% a 20%) */
     const syncPercent = (rangeEl, inputEl, displayEl) => {
-      const clamp = (v) => {
-        const num = Number(v);
-        if (Number.isNaN(num)) return 10.00;
-        return Math.min(20, Math.max(10, Number(num.toFixed(2))));
+      const parseLoose = (str) => {
+        if (str == null) return NaN;
+        const cleaned = String(str).replace('%','').replace(/[^\d.,-]/g, '').replace(',', '.');
+        return parseFloat(cleaned);
       };
-      const updateFromRange = () => {
-        const v = clamp(rangeEl.value);
-        inputEl.value = v.toFixed(2);
-        displayEl.textContent = `${v.toFixed(2).replace('.', ',')}%`;
+      const clamp = (num) => Math.min(20, Math.max(10, num));
+      const fmt = (num) => num.toFixed(2).replace('.', ',');
+
+      const fromRange = () => {
+        const v = clamp(parseFloat(rangeEl.value) || 10);
+        inputEl.value = fmt(v);
+        displayEl.textContent = `${fmt(v)}%`;
         updateSliderFill(rangeEl);
       };
-      const updateFromInput = () => {
-        const v = clamp(inputEl.value);
-        inputEl.value = v.toFixed(2);
-        rangeEl.value = v;
-        displayEl.textContent = `${v.toFixed(2).replace('.', ',')}%`;
+
+      const fromInput = () => {
+        // Não reescreve o valor enquanto digita; só atualiza a legenda
+        const raw = inputEl.value ?? '';
+        if (raw === '') { displayEl.textContent = '—'; return; }
+        const num = parseLoose(raw);
+        if (Number.isNaN(num)) { displayEl.textContent = `${raw}%`; return; }
+        // Atualiza slider apenas quando estiver dentro do intervalo
+        if (num >= 10 && num <= 20) { rangeEl.value = String(num); updateSliderFill(rangeEl); }
+        displayEl.textContent = `${fmt(clamp(num))}%`;
+      };
+
+      const onBlur = () => {
+        const num = parseLoose(inputEl.value);
+        const v = Number.isNaN(num) ? 10 : clamp(num);
+        inputEl.value = fmt(v);
+        rangeEl.value = String(v);
+        displayEl.textContent = `${fmt(v)}%`;
         updateSliderFill(rangeEl);
       };
-      rangeEl.addEventListener('input', updateFromRange);
-      inputEl.addEventListener('input', updateFromInput);
-      updateFromRange();
+
+      rangeEl.addEventListener('input', fromRange);
+      inputEl.addEventListener('input', fromInput);
+      inputEl.addEventListener('blur', onBlur);
+      fromRange();
     };
 
     /* Sincronizar slider com input e atualizar display */
@@ -1095,8 +1113,8 @@
 
       } else {
         // Condição 2: Percentuais configuráveis (10% a 20%)
-        const vistaPercent = Math.min(20, Math.max(10, parseFloat(vistaPercentInput.value) || 10));
-        const parceladaPercent = Math.min(20, Math.max(10, parseFloat(parceladaPercentInput.value) || 10));
+        const vistaPercent = Math.min(20, Math.max(10, parseFloat(String(vistaPercentInput.value).replace(',','.')) || 10));
+        const parceladaPercent = Math.min(20, Math.max(10, parseFloat(String(parceladaPercentInput.value).replace(',','.')) || 10));
         const entradaVista = valorTerreno * (vistaPercent / 100);
         const entradaParcelada = valorTerreno * (parceladaPercent / 100);
         const saldoFinanciar = Math.max(0, valorTerreno - entradaVista - entradaParcelada);
