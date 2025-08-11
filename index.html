@@ -777,19 +777,22 @@
       rangeEl.style.background = `linear-gradient(to right, var(--primary-color) 0%, var(--primary-color) ${perc}%, var(--gray-200) ${perc}%, var(--gray-200) 100%)`;
     };
 
-    /* Sincronizar controles de valores em R$ (10.000 a 20.000) */
+    /* Sincronizar controles de valores em R$ (dinâmico: 10% a 20% do terreno) */
     const syncValor = (rangeEl, inputEl, displayEl) => {
       const parseBR = (str) => {
         if (str == null) return NaN;
         const cleaned = String(str).replace(/[^\d.,-]/g, '').replace(/\./g, '').replace(',', '.');
         return parseFloat(cleaned);
       };
-      const clamp = (num) => Math.min(20000, Math.max(10000, num));
+      const getMin = () => Number(rangeEl.min) || 0;
+      const getMax = () => Number(rangeEl.max) || Infinity;
+      const clamp = (num) => Math.min(getMax(), Math.max(getMin(), num));
       const fmtBR = (num) => formatBRL(num);
       const fmtInput = (num) => num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
       const fromRange = () => {
-        const v = clamp(parseFloat(rangeEl.value) || 10000);
+        const fallback = getMin() || 0;
+        const v = clamp(parseFloat(rangeEl.value) || fallback);
         inputEl.value = fmtInput(v);
         displayEl.textContent = fmtBR(v);
         updateSliderFill(rangeEl);
@@ -800,13 +803,14 @@
         if (raw === '') { displayEl.textContent = '—'; return; }
         const num = parseBR(raw);
         if (Number.isNaN(num)) { displayEl.textContent = raw; return; }
-        if (num >= 10000 && num <= 20000) { rangeEl.value = String(num); updateSliderFill(rangeEl); }
+        if (num >= getMin() && num <= getMax()) { rangeEl.value = String(num); updateSliderFill(rangeEl); }
         displayEl.textContent = fmtBR(clamp(num));
       };
 
       const onBlur = () => {
         const num = parseBR(inputEl.value);
-        const v = Number.isNaN(num) ? 10000 : clamp(num);
+        const fallback = getMin() || 0;
+        const v = Number.isNaN(num) ? fallback : clamp(num);
         inputEl.value = fmtInput(v);
         rangeEl.value = String(v);
         displayEl.textContent = fmtBR(v);
@@ -817,6 +821,33 @@
       inputEl.addEventListener('input', fromInput);
       inputEl.addEventListener('blur', onBlur);
       fromRange();
+    };
+
+    /* Atualizar limites dos campos da Condição 2 com base no valor do terreno */
+    const updateCond2Limits = () => {
+      const valorTerreno = parseIntPt(terrenoInput.value) || 0;
+      const minValor = Math.floor(valorTerreno * 0.10);
+      const maxValor = Math.floor(valorTerreno * 0.20);
+
+      [
+        { range: vistaPercentRange, input: vistaPercentInput, display: vistaPercentDisplay },
+        { range: parceladaPercentRange, input: parceladaPercentInput, display: parceladaPercentDisplay }
+      ].forEach(({ range, input, display }) => {
+        range.min = String(minValor);
+        range.max = String(maxValor);
+        range.step = '100';
+
+        const atual = parseIntPt(input.value);
+        let v = atual;
+        if (Number.isNaN(v) || v === 0) v = minValor;
+        if (v < minValor) v = minValor;
+        if (v > maxValor) v = maxValor;
+
+        range.value = String(v);
+        input.value = (v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        display.textContent = formatBRL(v);
+        updateSliderFill(range);
+      });
     };
 
     /* Sincronizar slider com input e atualizar display */
@@ -837,7 +868,7 @@
             syncEntradaTerreno();
           }
         } else {
-          updateEntradaMax();
+          updateCond2Limits();
         }
       };
       
@@ -874,7 +905,7 @@
                   syncEntradaTerreno();
                 }
               } else {
-                updateEntradaMax();
+                updateCond2Limits();
               }
             }
           }
@@ -993,6 +1024,9 @@
          if (parseInt(mesesInput.value) > 228) {
            mesesInput.value = 228;
          }
+
+        // Limites dinâmicos dos valores (10% a 20% do terreno)
+        updateCond2Limits();
        }
      };
 
@@ -1200,6 +1234,18 @@
     // Inicializar sincronização dos percentuais (mesmo ocultos inicialmente)
     syncValor(vistaPercentRange, vistaPercentInput, vistaPercentDisplay);
     syncValor(parceladaPercentRange, parceladaPercentInput, parceladaPercentDisplay);
+    // Definir limites iniciais para condição 2 com base no valor atual do terreno
+    updateCond2Limits();
+
+    // Recalcular limites da Condição 2 sempre que o valor do terreno mudar
+    const handleTerrenoChangeForCond2 = () => {
+      if (condicaoAtual === 2) {
+        updateCond2Limits();
+      }
+    };
+    terrenoRange.addEventListener('input', handleTerrenoChangeForCond2);
+    terrenoInput.addEventListener('input', handleTerrenoChangeForCond2);
+    terrenoInput.addEventListener('blur', handleTerrenoChangeForCond2);
     updateInterfaceForCondition();
     
     /* Validação do campo de meses */
